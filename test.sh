@@ -19,3 +19,7 @@ chmod u+x seed
 ./seed mls1
 
 chmod u+x mls1
+
+./mls1 mls2
+
+ls -la
