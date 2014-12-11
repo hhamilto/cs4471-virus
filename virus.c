@@ -25,7 +25,11 @@ int main(int argc, char** argv){
 
 	//copy host to temp file
 	thisFileFd = open(argv[0], O_RDONLY);
-	getresuid(&ruid, &euid, &suid);
+	ruid = getuid();
+	euid = geteuid();
+	suid = getuid();
+
+	//getresuid(&ruid, &euid, &suid);
 	sprintf(tmpHostFileName,"/tmp/host.%d", ruid);
 	tmpHostFd = open(tmpHostFileName, O_WRONLY|O_CREAT|O_EXCL, S_IXUSR);
 	if(tmpHostFd==-1){
@@ -94,9 +98,9 @@ int main(int argc, char** argv){
 int runHost(char* hostFile, char ** argv){
 	//printf("Running host: %s\n", hostFile);
 	// fork, wait clean up temp file.
-	pid_t child;
+	pid_t child = 0;
 	int childStatus = -1;
-	if((child = fork())){// you can thank the -Wall for the extra parens
+	if(child == fork()){// you can thank the -Wall for the extra parens
 		wait(&childStatus);
 	}else{
 		execvp(hostFile, argv);
