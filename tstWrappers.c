@@ -1,32 +1,43 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <errno.h>
 
-int main(int argc char** agrv){
-FILE *file; 
-struct stat fileStat;
+int main(int argc, char** argv){
+	int fileFd; 
+	int i;
+	struct stat fileStat;
 
-//call open on file
-file = open(argv[1], "r");
+	//call open on file
+	fileFd = open(argv[1], O_RDWR);//O_RDONLY);
 
-if(file == null){
-printf("no file\n",);
-}
+	if(fileFd == -1){
+		printf("open returned -1\n");
+		return 1;
+	}
 
-//call fstat
-if(stat(argv[1],&fileStat) !=0){
-	printf("no file\n",);
-}
+	//call fstat
+	if(fstat(fileFd,&fileStat) !=0){
+		printf("No file\n");
+		return 1;
+	}
 
-//print the file size an 1st 8 bites in hex
-printf("file size:%d\n", fileStat-> st_size);
+	//print the file size an 1st 8 bites in hex
+	printf("file size: %d\n", fileStat.st_size);
 
-printf("1st eight bytes in hex:");
+	printf("1st eight bytes in hex: ");
+	for(i = 0; i < 8; i++){
+		char buf;
+		if(read(fileFd, &buf,1)==-1){perror("read error: ");}
+		printf("%x", buf);
+	}
+	printf("\n");
 
-for(i = 0 i < 8 i++){
-printf("%x", fgetc(file));
-}
+	// call close
+	close(fileFd);
 
-// call close
-close(file);
-
-return 0;	
+	return 0;
 }

