@@ -26,7 +26,7 @@ int main(int argc, char** argv){
 	}
 
 	//print the file size an 1st 8 bites in hex
-	printf("file size: %d\n", fileStat.st_size);
+	printf("file size: %d\n", (int) fileStat.st_size);
 
 	printf("1st eight bytes in hex: ");
 	for(i = 0; i < 8; i++){

